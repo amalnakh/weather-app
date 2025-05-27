@@ -10,8 +10,11 @@ import wind_icon from '../assets/wind.png'
 import humidity_icon from '../assets/humidity.png'
 
 const Weather = () => {
-  const inputRef = useRef() 
-  const [weatherData, setWeatherData] = useState(false);
+  const inputRef = useRef()
+  const [weatherData, setWeatherData] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
   const allIcons = {
     "01d": clear_icon,
     "01n": clear_icon,
@@ -25,84 +28,107 @@ const Weather = () => {
     "09n": rain_icon,
     "10d": rain_icon,
     "10n": rain_icon,
-    "02d": cloud_icon,
     "13d": snow_icon,
     "13n": snow_icon,
   }
 
-  const search = async (city)=>{
-    if(city === ""){
-      alert("Enter City Name");
-      return;
+  const search = async (city) => {
+    if (!city) {
+      setError("Please enter a city name")
+      return
     }
-    try{
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${import.meta.env.VITE_APP_ID}`;
-      const response = await fetch(url);
-      const data= await response.json();
 
-      if(!response.ok){
-        alert(data.message);
-        return;
+    setLoading(true)
+    setError(null)
+
+    try {
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${import.meta.env.VITE_APP_ID}`
+      const response = await fetch(url)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message)
       }
 
-
-      console.log(data);
-      const icon = allIcons[data.weather[0].icon] || clear_icon;
+      const icon = allIcons[data.weather[0].icon] || clear_icon
       setWeatherData({
         humidity: data.main.humidity,
         windSpeed: data.wind.speed,
         temperature: Math.floor(data.main.temp),
         location: data.name,
+        description: data.weather[0].description,
         icon: icon
       })
-       
-    }catch(error){
-      setWeatherData(false);
-      console.error("Error in fetching weather data");
-
-
+    } catch (error) {
+      setError(error.message || "Failed to fetch weather data")
+      setWeatherData(false)
+    } finally {
+      setLoading(false)
     }
   }
 
-  useEffect(()=>{
-    search("London");
-  },[])
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      search(inputRef.current.value)
+    }
+  }
+
+  useEffect(() => {
+    search("London")
+  }, [])
 
   return (
     <div className='weather'>
       <div className='search-bar'>
-        <input ref={inputRef} type='text' placeholder='Search'/>
-        <img src={search_icon} alt="" onClick={()=>search(inputRef.current.value)} />
+        <input
+          ref={inputRef}
+          type='text'
+          placeholder='Enter city name'
+          onKeyPress={handleKeyPress}
+        />
+        <img
+          src={search_icon}
+          alt="Search"
+          onClick={() => search(inputRef.current.value)}
+        />
       </div>
-             
-      {weatherData?<>
 
-      <img src={weatherData.icon} alt="" className='weather-icon' />
-      <p className='temperature'>{weatherData.temperature}°C</p>
-      <p className='location'>{weatherData.location}</p>
-      <div className='weather-data'>
-        <div className='col'>
-          <img src={humidity_icon} alt='' />
-          <div>
-            <p>{weatherData.humidity}%</p>
-            <span>Humidity</span>
-          </div>
+      {error && (
+        <div className="error-message">
+          {error}
         </div>
+      )}
 
-        <div className='col'>
-          <img src={wind_icon} alt='' />
-          <div>
-            <p>{weatherData.windSpeed}Km/h</p>
-            <span>Wind Speed</span>
-          </div>
+      {loading ? (
+        <div className="loading">
+          Loading weather information...
         </div>
+      ) : weatherData && (
+        <>
+          <img src={weatherData.icon} alt={weatherData.description} className='weather-icon' />
+          <p className='temperature'>{weatherData.temperature}°C</p>
+          <p className='location'>{weatherData.location}</p>
+          <p className='description'>{weatherData.description}</p>
 
+          <div className='weather-data'>
+            <div className='col'>
+              <img src={humidity_icon} alt='Humidity' />
+              <div>
+                <p>{weatherData.humidity}%</p>
+                <span>Humidity</span>
+              </div>
+            </div>
 
-      </div>
-      </>:<></>}
-
-
-      
+            <div className='col'>
+              <img src={wind_icon} alt='Wind Speed' />
+              <div>
+                <p>{weatherData.windSpeed} km/h</p>
+                <span>Wind Speed</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
